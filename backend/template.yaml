@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Description: Vault-tec - Infrastructure de stockage scalable
+
+Resources:
+  # 1. Le Bucket S3
+  VaultStorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "vault-tec-storage-${AWS::AccountId}"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            AllowedOrigins:
+              - "*"
+
+  # 2. La Table DynamoDB
+  VaultMetadataTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: fileId
+        Type: String
+
+  # 3. La Fonction Lambda
+  UploadHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: hello_world/
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref VaultStorageBucket
+          TABLE_NAME: !Ref VaultMetadataTable
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref VaultStorageBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VaultMetadataTable
+      Events:
+        GetUploadUrl:
+          Type: Api
+          Properties:
+            Path: /upload-url
+            Method: get
